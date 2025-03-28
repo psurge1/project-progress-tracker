@@ -93,7 +93,9 @@ a.secondary {
 }
 
 .footer {
-  grid-row-start: 3;
+  grid-row-start: 6;
+  /* position: fixed;
+  top: 90%; */
   display: flex;
   gap: 24px;
 }

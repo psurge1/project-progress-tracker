@@ -1,4 +1,4 @@
-import { getDatabase, ref, get, set, update, push, remove, onValue, DataSnapshot } from "firebase/database";
+import { getDatabase, Database, Unsubscribe, ref, get, set, remove, onValue } from "firebase/database";
 import { initializeApp } from "firebase/app";
 
 import Project from '../models/Project'
@@ -9,102 +9,124 @@ const app = initializeApp(firebaseConfig);
 console.log(app.name);
 
 class DBManager {
-    private db;
-    private projectsRef;
-
+    private database: Database;
     constructor() {
-        this.db = getDatabase();
-        this.projectsRef = ref(this.db, 'projects');
+        this.database = getDatabase(app);
     }
 
-    // Fetch all projects
-    async getProjects(): Promise<Project[]> {
+    // async getProjects(): Promise<Project[]> {
+    //     return [];
+    // }
+
+    // async getProject(projectName: string): Promise<Project | null> {
+    //     const projRef = ref(this.database, 'projects/' + projectName);
+    //     try {
+
+    //     }
+    //     catch (error) {
+    //         console.error(error);
+    //         return null;
+    //     }
+    // }
+
+    async createProject(projectName: string, projectValue: Project): Promise<boolean> {
+        const projRef = ref(this.database, 'projects/' + projectName);
         try {
-            const snapshot: DataSnapshot = await get(this.projectsRef);
+            const snapshot = await get(projRef);
             if (snapshot.exists()) {
-                const projects: Project[] = [];
-                snapshot.forEach((childSnapshot) => {
-                    const project = childSnapshot.val() as Project;
-                    projects.push(project);
-                });
-                return projects;
-            } else {
-                return [];
+                console.log(`Project ${projectName} already exists!`);
+                return false;
             }
-        } catch (error) {
-            console.error("Error fetching projects:", error);
-            return [];
+            else {
+                // await set(projRef, {
+                //     projectName: projectName,
+                //     description: projectValue.description,
+                //     type: projectValue.type,
+                //     progress: projectValue.progress,
+                //     interestLevel: projectValue.interestLevel,
+                //     languages: projectValue.languages,
+                //     tools: projectValue.tools,
+                //     issues: projectValue.issues
+                // });
+                await set(projRef, projectValue as Project);
+                console.log(`Project ${projectName} added successfully!`);
+                return true;
+            }
+        }
+        catch (error) {
+            console.error(error);
+            return false;
         }
     }
 
-    // Fetch a specific project by ID
-    async getProjectById(projectId: string): Promise<Project | null> {
-        console.log("Querying Project: " + projectId);
-        const projectRef = ref(this.db, 'projects/${projectId}');
+    async updateProject(projectName: string, projectValue: Project): Promise<boolean> {
+        const projRef = ref(this.database, 'projects/' + projectName);
         try {
-            const snapshot: DataSnapshot = await get(projectRef);
+            const snapshot = await get(projRef);
+            if (!snapshot.exists()) {
+                console.log(`Project ${projectName} doesnt exist!`);
+                return false;
+            }
+            else {
+                // await set(projRef, {
+                //     projectName: projectName,
+                //     description: projectValue.description,
+                //     type: projectValue.type,
+                //     progress: projectValue.progress,
+                //     interestLevel: projectValue.interestLevel,
+                //     languages: projectValue.languages,
+                //     tools: projectValue.tools,
+                //     issues: projectValue.issues
+                // });
+                await set(projRef, projectValue as Project);
+                console.log(`Project ${projectName} updated successfully!`);
+                return true;
+            }
+        }
+        catch (error) {
+            console.error(error);
+            return false;
+        }
+    }
+
+    async deleteAllProjects(): Promise<boolean> {
+        const projRef = ref(this.database, 'projects');
+        remove(projRef);
+        return true;
+    }
+
+    async deleteProject(projectName: string): Promise<boolean> {
+        const projRef = ref(this.database, 'projects/' + projectName);
+        remove(projRef);
+        return true;
+    }
+
+    async listenToProject(projectName: string, callback: (project: Project | null) => void): Promise<Unsubscribe> {
+        const projectRef = ref(this.database, 'projects/' + projectName);
+        
+        return onValue(projectRef, (snapshot) => {
             if (snapshot.exists()) {
-                return snapshot.val() as Project;
-            } else {
-                return null;
+                console.log(snapshot.val());
+                callback(snapshot.val() as Project);
             }
-        } catch (error) {
-            console.error("Error fetching project:", error);
-            return null;
-        }
+            else {
+                callback(null);
+            }
+        });
     }
 
-    // Function to create a new project
-    async createProject(projectData: Project): Promise<string | null> {
-        try {
-            const newProjectRef = push(this.projectsRef); // Generate a unique ID for the new project
-            await set(newProjectRef, projectData); // Set the project data at the new reference
-            return newProjectRef.key; // Return the unique ID of the new project
-        } catch (error) {
-            console.error("Error creating project:", error);
-            return null;
-        }
-    }
-
-    // Function to update a project's details
-    async updateProject(projectId: string, updates: Partial<Project>): Promise<void> {
-        const projectRef = ref(this.db, `projects/${projectId}`);
-        try {
-            await update(projectRef, updates);
-            console.log("Project updated successfully!");
-        } catch (error) {
-            console.error("Error updating project:", error);
-        }
-    }
-
-    // Function to delete a project
-    async deleteProject(projectId: string): Promise<void> {
-        const projectRef = ref(this.db, `projects/${projectId}`);
-        try {
-            await remove(projectRef);
-            console.log("Project deleted successfully!");
-        } catch (error) {
-            console.error("Error deleting project:", error);
-        }
-    }
-
-    // Function to listen for real-time updates to a specific project
-    listenForProjectUpdates(projectId: string, callback: (projectData: Project | null) => void): () => void {
-        const projectRef = ref(this.db, `projects/${projectId}`);
-        const onValueChange = (snapshot: DataSnapshot) => {
+    async listenToProjects(callback: (project: Project[]) => void): Promise<Unsubscribe> {
+        const projectsRef = ref(this.database, 'projects');
+        
+        return onValue(projectsRef, (snapshot) => {
             if (snapshot.exists()) {
-            callback(snapshot.val() as Project);
-            } else {
-            callback(null);
+                const projArr: Project[] = Object.keys(snapshot.val()).map(k => snapshot.val()[k]);
+                callback(projArr);
             }
-        };
-
-        onValue(projectRef, onValueChange);
-
-        // Return a function to unsubscribe from the listener
-        return () => {
-            // Detach the listener
-        };
+            else {
+                callback([]);
+            }
+        });
     }
 }
 

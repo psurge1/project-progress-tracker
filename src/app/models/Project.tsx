@@ -7,6 +7,12 @@ interface Project {
     languages: string[];
     tools: string[];
     issues: string[];
+    projectLink: string;
+}
+
+interface ProjectGroup {
+    projectName: Project;
 }
 
 export default Project;
+export {type ProjectGroup};

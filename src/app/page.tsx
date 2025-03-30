@@ -1,7 +1,7 @@
 'use client';
 
 import styles from "./page.module.css";
-import Image from "next/image";
+// import Image from "next/image";
 
 import Projects from './components/Projects'
 import Footer from './components/Footer'
@@ -10,7 +10,6 @@ export default function Home() {
   return (
     <div className={styles.page}>
       <h1>Projects</h1>
-      {/* TODO: Ability to save all data to file and load all data from file (in case firebase stops working) */}
       <Projects></Projects>
       {/* <main className={styles.main}>
         <h1>Projects</h1>
